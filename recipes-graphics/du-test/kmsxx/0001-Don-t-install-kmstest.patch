@@ -1,0 +1,27 @@
+From 477d567c05c16f3778574a12c01c8049e582113e Mon Sep 17 00:00:00 2001
+From: Tomohito Esaki <etom@igel.co.jp>
+Date: Fri, 1 Jul 2022 12:12:42 +0900
+Subject: [PATCH 1/2] Don't install kmstest
+
+In rcar-bsp, a conflict occurs during installation because libdrm-test
+contains kmstest. Don't install kmstest to avoid this conflict.
+---
+ utils/meson.build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/utils/meson.build b/utils/meson.build
+index ac73b5b..325ab59 100644
+--- a/utils/meson.build
++++ b/utils/meson.build
+@@ -2,7 +2,7 @@ common_deps = [ libkmsxx_dep, libkmsxxutil_dep, libfmt_dep ]
+ 
+ libevdev_dep = dependency('libevdev', required : false)
+ 
+-executable('kmstest', 'kmstest.cpp', dependencies : [ common_deps ], install : true)
++executable('kmstest', 'kmstest.cpp', dependencies : [ common_deps ], install : false)
+ executable('kmsview', 'kmsview.cpp', dependencies : [ common_deps ], install : false)
+ executable('kmsprint', 'kmsprint.cpp', dependencies : [ common_deps ], install : true)
+ executable('fbtest', 'fbtest.cpp', dependencies : [ common_deps ], install : true)
+-- 
+2.17.1
+
