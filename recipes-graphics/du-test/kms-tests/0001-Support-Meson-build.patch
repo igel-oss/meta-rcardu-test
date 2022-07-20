@@ -1,0 +1,186 @@
+From 1df14294b97f068b5ff477092188d6c23655523f Mon Sep 17 00:00:00 2001
+From: Tomohito Esaki <etom@igel.co.jp>
+Date: Wed, 20 Jul 2022 15:11:49 +0900
+Subject: [PATCH 1/2] Support Meson build
+
+Meson is a common build system used in OSS such as wayland/weston and
+gstreamer. Importantly, it will be easier the integration of kms-tests
+into yocto recipes.
+
+In meson, when a program such as a script generates code, the generated
+code must be specified as the build target. Since the generated crc.c is
+specified as the build target, crc.c will be compiled, resulting in an
+error. Change the generated file name from crc.c to crc.h to avoid this
+problem.
+---
+ Makefile          | 14 --------------
+ README            |  4 +++-
+ crc/Makefile      | 32 --------------------------------
+ crc/main.c        |  2 +-
+ crc/meson.build   | 10 ++++++++++
+ meson.build       |  4 ++++
+ tests/Makefile    | 10 ----------
+ tests/meson.build | 18 ++++++++++++++++++
+ 8 files changed, 36 insertions(+), 58 deletions(-)
+ delete mode 100644 Makefile
+ delete mode 100644 crc/Makefile
+ create mode 100644 crc/meson.build
+ create mode 100644 meson.build
+ delete mode 100644 tests/Makefile
+ create mode 100644 tests/meson.build
+
+diff --git a/Makefile b/Makefile
+deleted file mode 100644
+index e9c0edb..0000000
+--- a/Makefile
++++ /dev/null
+@@ -1,14 +0,0 @@
+-# SPDX-License-Identifier: CC0-1.0
+-
+-SUBDIRS=crc tests
+-
+-recursive=all clean install
+-
+-all:
+-
+-$(recursive):
+-	@target=$@ ; \
+-	for subdir in $(SUBDIRS); do \
+-		echo "Making $$target in $$subdir" ; \
+-		$(MAKE) -C $$subdir $$target; \
+-	done
+diff --git a/README b/README
+index dcd3461..d551322 100644
+--- a/README
++++ b/README
+@@ -19,7 +19,9 @@ Building and Installing
+ The du-tests suite is written in Python and doesn't have any build time
+ dependency. To install it, run
+ 
+-	make install INSTALL_DIR=/path/to/target/directory
++	meson build --prefix /path/to/target/directroy
++	ninja -C build/
++	ninja -C build/ install
+ 
+ This will copy the test scripts to the target directory to be copied or
+ exported to the host.
+diff --git a/crc/Makefile b/crc/Makefile
+deleted file mode 100644
+index 0922163..0000000
+--- a/crc/Makefile
++++ /dev/null
+@@ -1,32 +0,0 @@
+-# SPDX-License-Identifier: CC0-1.0
+-
+-CROSS_COMPILE ?=
+-
+-CC	:= $(CROSS_COMPILE)gcc
+-CFLAGS	?= -O2 -W -Wall -Wno-unused-parameter -Iinclude
+-LDFLAGS	?=
+-LIBS	:=
+-
+-OUTPUT	:= discom-crc
+-OBJECTS	:= main.o
+-
+-%.o : %.c
+-	$(CC) $(CFLAGS) -c -o $@ $<
+-
+-all: $(OUTPUT)
+-
+-$(OUTPUT): $(OBJECTS)
+-	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+-
+-crc.c : gen-crc.py
+-	./$< $@
+-
+-main.o : crc.c
+-
+-clean:
+-	-rm -f *.o
+-	-rm -f crc.c
+-	-rm -f $(OUTPUT)
+-
+-install:
+-	cp $(OUTPUT) $(INSTALL_DIR)/
+diff --git a/crc/main.c b/crc/main.c
+index b634219..ca12e8f 100644
+--- a/crc/main.c
++++ b/crc/main.c
+@@ -13,7 +13,7 @@
+ #include <sys/types.h>
+ #include <unistd.h>
+ 
+-#include "crc.c"
++#include "crc.h"
+ 
+ struct image_rect {
+ 	int left;
+diff --git a/crc/meson.build b/crc/meson.build
+new file mode 100644
+index 0000000..45e6a32
+--- /dev/null
++++ b/crc/meson.build
+@@ -0,0 +1,10 @@
++
++prog_python = find_program('python3')
++
++gen_src = custom_target('gencrc',
++	input: 'gen-crc.py',
++	output: 'crc.h',
++	command: [ prog_python, '@INPUT@', '@OUTPUT@' ],
++)
++
++executable('discom-crc', ['main.c', gen_src], install: true)
+diff --git a/meson.build b/meson.build
+new file mode 100644
+index 0000000..8aed6f9
+--- /dev/null
++++ b/meson.build
+@@ -0,0 +1,4 @@
++project('kms-tests', 'c')
++
++subdir('crc')
++subdir('tests')
+diff --git a/tests/Makefile b/tests/Makefile
+deleted file mode 100644
+index 0a921e5..0000000
+--- a/tests/Makefile
++++ /dev/null
+@@ -1,10 +0,0 @@
+-# SPDX-License-Identifier: CC0-1.0
+-
+-SCRIPTS=$(wildcard *.py)
+-
+-all:
+-
+-clean:
+-
+-install:
+-	cp $(SCRIPTS) $(INSTALL_DIR)/
+diff --git a/tests/meson.build b/tests/meson.build
+new file mode 100644
+index 0000000..ff61e40
+--- /dev/null
++++ b/tests/meson.build
+@@ -0,0 +1,18 @@
++scripts = [
++	'kms-test-allplanes.py',
++	'kms-test-brxalloc.py',
++	'kms-test-connectors.py',
++	'kms-test-crc.py',
++	'kms-test-formats.py',
++	'kms-test-legacy-modeset.py',
++	'kms-test-modes.py',
++	'kms-test-modeset.py',
++	'kms-test-pageflip.py',
++	'kms-test-plane-alpha.py',
++	'kms-test-plane-position.py',
++	'kms-test-plane-zpos.py',
++	'kms-test-routing.py',
++	'kmstest.py',
++]
++
++install_data(scripts, install_dir: get_option('bindir'))
+-- 
+2.17.1
+

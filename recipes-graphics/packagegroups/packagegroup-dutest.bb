@@ -11,4 +11,5 @@ RDEPENDS:${PN} += " \
     python3-crcmod \
     kmsxx \
     kmsxx-python \
+    kms-tests \
 "
